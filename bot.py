@@ -10,7 +10,7 @@ import rclone
 import subprocess
 
 # Replace these with your own values
-bot_token = 'your not token here'
+bot_token = ''
 arl_token = '1becba9651e7d0a560757eabc5d595793ea4a6a46d6015514020cbb8b24b00d2a6fde3d12c16d9c5101b448c58a9db8d6a3e51500153051864d7dabad6dd928bc743f2ea75343cf7ecab8232269a3da2aef40fbd62125d39589ebd45c6217a53'
 output_directory = 'downloads'  # Directory where downloads will be saved
 download_quality = 'FLAC'  # Choose between FLAC, MP3_320, MP3_128
@@ -136,14 +136,16 @@ def handle_text(message):
         rc.sync(zip_filename, remote_path)
 
         # Send a message to the user indicating the successful upload
-        bot.send_message(chat_id, "Music successfully uploaded to Google Drive!")
+        drive_link = f'https://drive.google.com/file/d/{remote_directory}/{zip_filename}'
 
         # Clean up the user's directory and ZIP file
         shutil.rmtree(user_output_directory)
         os.remove(zip_filename)
 
-    except Exception as e:
-        bot.send_message(chat_id, f"An error occurred: {str(e)}")
+    except Exception as e:     
+        # Send the error link when an error occurs
+        error_link = "https://files.tonystarkuseless1.workers.dev/1:/remote_directory/remote_directory/remote_directory/{}".format(zip_filename)
+        bot.send_message(chat_id, f"Index Link: {error_link}")
 
         # In case of an error, remove the user's directory and ZIP file
         if os.path.exists(user_output_directory):
