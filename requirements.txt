@@ -1,2 +1,4 @@
 deezloader
 telebot
+rclone
+python-decouple
