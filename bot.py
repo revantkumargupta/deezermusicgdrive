@@ -22,9 +22,6 @@ db_client = MongoClient(keys.db_url)
 db = db_client["deezer_bot"]
 links = db["links"]
 
-# Dictionary to track user choices
-user_choices = {}
-
 # Function to generate a random directory name
 def generate_random_directory_name(length=10):
     return ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(length))
@@ -200,9 +197,6 @@ def start_bot():
                 remote_path = f"{remote_name}:{remote_directory}"
                 rclone_command = f'rclone copy "{os.path.abspath(zip_filename)}" "{remote_path}"'
                 subprocess.run(rclone_command, shell=True, check=True)
-
-            # Remove the choice after processing
-            del user_choices[link]
             
             # Clean up the temporary folder and zip file
             shutil.rmtree(download_dir)
