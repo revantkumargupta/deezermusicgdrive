@@ -1,0 +1,6 @@
+api_id = ''
+api_hash = ''
+bot_token = ''
+arl_token = ''
+index_link = ''
+db_url = ''
