@@ -22,6 +22,9 @@ db_client = MongoClient(keys.db_url)
 db = db_client["deezer_bot"]
 links = db["links"]
 
+# Dictionary to track user choices
+user_choices = {}
+
 # Function to generate a random directory name
 def generate_random_directory_name(length=10):
     return ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(length))
@@ -188,29 +191,26 @@ def start_bot():
             )
 
 
-
             if action == 'gd':  # User chose Google Drive
                 # Upload the ZIP file to Google Drive using rclone
+                zip_file_name_only = random_folder_name + ".zip"
+                gd_link = keys.index_link + zip_file_name_only
                 rclone_cfg = r'C:\Users\Tony Stark\Desktop\musicbotv2-main\musicbotv2-main\rclone.conf'  # Update with your rclone config path
                 remote_name = 'Tony_Drive'  # Update with your remote name
                 remote_directory = '1ZJ89QrS6841EKdXqmd6cyFzviO2_ZbbE'  # Update with your remote directory
                 remote_path = f"{remote_name}:{remote_directory}"
                 rclone_command = f'rclone copy "{os.path.abspath(zip_filename)}" "{remote_path}"'
                 subprocess.run(rclone_command, shell=True, check=True)
+                
+             # Remove the choice after processing
+            del user_choices[link]               
             
             # Clean up the temporary folder and zip file
             shutil.rmtree(download_dir)
             os.remove(zip_filename)
-            
+        await callback_query.message.reply_text(f"You can access your music ZIP file on Google Drive: {gd_link}")   
         await callback_query.message.edit("Processed!")
-        # Define the base URL for the link
-        base_url = "https://files.tonystarkuseless1.workers.dev/1:/remote_directory/remote_directory/"
 
-        # Construct the link using the remote_directory and zip_filename
-        link = f"{base_url}/{remote_directory}/{zip_file_name_only}"
-
-        # Edit the message to include the link
-        await callback_query.message.edit(f"Processed! You can access your file here: {link}")
     if __name__ == "__main__":
         deezloader_async = aioify(obj=Login, name='deezloader_async')
         download = deezloader_async(keys.arl_token)
