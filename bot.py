@@ -22,6 +22,9 @@ db_client = MongoClient(keys.db_url)
 db = db_client["deezer_bot"]
 links = db["links"]
 
+# Dictionary to track user choices
+user_choices = {}
+
 # Function to generate a random directory name
 def generate_random_directory_name(length=10):
     return ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(length))
@@ -32,6 +35,7 @@ def sanitize_filename(filename):
     return re.sub(r'[\/:*?"<>|]', '', filename)
 
 
+#arl_token = '1becba9651e7d0a560757eabc5d595793ea4a6a46d6015514020cbb8b24b00d2a6fde3d12c16d9c5101b448c58a9db8d6a3e51500153051864d7dabad6dd928bc743f2ea75343cf7ecab8232269a3da2aef40fbd62125d39589ebd45c6217a53'
 # Define a function to start the bot
 def start_bot():
     bot = Client(
@@ -39,11 +43,12 @@ def start_bot():
         api_id=keys.api_id,
         api_hash=keys.api_hash,
         bot_token=keys.bot_token
+        
     )
 
     @bot.on_message(filters.command("start"))
     async def start_message(client, message):
-        await message.reply_text("Welcome to the Music Downloader bot! Send me a Deezer or Spotify track, album, or playlist link, and I'll download it for you.")
+        await message.reply_text("Hello")
 
     @bot.on_message(filters.regex(r"^https?:\/\/(?:www\.)?deezer\.com\/([a-z]*\/)?album\/(\d+)\/?$"))
     @bot.on_message(filters.regex(r"https://www.deezer.com/track/"))
@@ -84,124 +89,134 @@ def start_bot():
         link = link['link']
         action = callback_query.matches[0].group(1)
 
-        # Generate a random folder name within the "tmp" directory
-        random_folder_name = generate_random_directory_name()
+        # Check if the user has already made a choice for this link
+        if link not in user_choices:
+            user_choices[link] = action  # Store the user's choice
 
-        # Define the directory path for downloads
-        download_dir = os.path.join("tmp", random_folder_name)
+            # Generate a random folder name within the "tmp" directory
+            random_folder_name = generate_random_directory_name()
 
-        # Create the directory if it doesn't exist
-        os.makedirs(download_dir, exist_ok=True)
+            # Define the directory path for downloads
+            download_dir = os.path.join("tmp", random_folder_name)
 
-        await callback_query.message.edit("Downloading...")
+            # Create the directory if it doesn't exist
+            os.makedirs(download_dir, exist_ok=True)
+            zip_filename = "tmp/"
+            zip_file_name_only = os.path.basename(zip_filename)
+            await callback_query.message.edit("Downloading...")
 
-        # Update the download path based on the random folder name
-        if service == 'deezer':
-            if link_type == 'album':
-                dl = await download.download_albumdee(
-                    link, output_dir=download_dir,
-                    quality_download='FLAC',
-                    recursive_download=True,
-                    recursive_quality=True,
-                    not_interface=True
-                )
-            elif link_type == 'playlist':
-                dl = await download.download_playlistdee(
-                    link, output_dir=download_dir,
-                    quality_download='FLAC',
-                    recursive_download=True,
-                    recursive_quality=True,
-                    not_interface=True
-                )
-            elif link_type == 'track':
-                dl = await download.download_trackdee(
-                    link, output_dir=download_dir,
-                    quality_download='FLAC',
-                    recursive_download=True,
-                    recursive_quality=True,
-                    not_interface=True
-                )
-                if action == 'tg':
-                    await callback_query.message.reply_audio(
-                        dl.song_path,
-                        duration=int(utils.get_flac_duration(dl.song_path))
+            # Update the download path based on the random folder name
+            if service == 'deezer':
+                if link_type == 'album':
+                    dl = await download.download_albumdee(
+                        link, output_dir=download_dir,
+                        quality_download='FLAC',
+                        recursive_download=True,
+                        recursive_quality=True,
+                        not_interface=True
                     )
-                    await callback_query.message.edit('Processed!')
-                else:
-                    url = dl.song_path
-        else:
-            if link_type == 'album':
-                dl = await download.download_albumspo(
-                    link, output_dir=download_dir,
-                    quality_download='FLAC',
-                    recursive_download=True,
-                    recursive_quality=True,
-                    not_interface=True
-                )
-            elif link_type == 'playlist':
-                dl = await download.download_playlistspo(
-                    link, output_dir=download_dir,
-                    quality_download='FLAC',
-                    recursive_download=True,
-                    recursive_quality=True,
-                    not_interface=True
-                )
-            elif link_type == 'track':
-                dl = await download.download_trackspo(
-                    link, output_dir=download_dir,
-                    quality_download='FLAC',
-                    recursive_download=True,
-                    recursive_quality=True,
-                    not_interface=True
-                )
-                if action == 'tg':
-                    await callback_query.message.reply_audio(
-                        dl.song_path,
-                        duration=int(utils.get_flac_duration(dl.song_path))
+                elif link_type == 'playlist':
+                    dl = await download.download_playlistdee(
+                        link, output_dir=download_dir,
+                        quality_download='FLAC',
+                        recursive_download=True,
+                        recursive_quality=True,
+                        not_interface=True
                     )
-                    await callback_query.message.edit('Processed!')
-                else:
-                    url = dl.song_path
+                elif link_type == 'track':
+                    dl = await download.download_trackdee(
+                        link, output_dir=download_dir,
+                        quality_download='FLAC',
+                        recursive_download=True,
+                        recursive_quality=True,
+                        not_interface=True
+                    )
+                    if action == 'tg':
+                        await callback_query.message.reply_audio(
+                            dl.song_path,
+                            duration=int(utils.get_flac_duration(dl.song_path))
+                        )
+                        await callback_query.message.edit('Processed!')
+                    else:
+                        url = dl.song_path
+            else:
+                if link_type == 'album':
+                    dl = await download.download_albumspo(
+                        link, output_dir=download_dir,
+                        quality_download='FLAC',
+                        recursive_download=True,
+                        recursive_quality=True,
+                        not_interface=True
+                    )
+                elif link_type == 'playlist':
+                    dl = await download.download_playlistspo(
+                        link, output_dir=download_dir,
+                        quality_download='FLAC',
+                        recursive_download=True,
+                        recursive_quality=True,
+                        not_interface=True
+                    )
+                elif link_type == 'track':
+                    dl = await download.download_trackspo(
+                        link, output_dir=download_dir,
+                        quality_download='FLAC',
+                        recursive_download=True,
+                        recursive_quality=True,
+                        not_interface=True
+                    )
+                    if action == 'tg':
+                        await callback_query.message.reply_audio(
+                            dl.song_path,
+                            duration=int(utils.get_flac_duration(dl.song_path))
+                        )
+                        await callback_query.message.edit('Processed!')
+                    else:
+                        url = dl.song_path
 
-        await callback_query.message.edit("Creating ZIP file...")
+            await callback_query.message.edit("Creating ZIP file...")
 
-        # Create a zip file of the downloaded folder
-        zip_filename = os.path.join("tmp", random_folder_name + ".zip")
-        with zipfile.ZipFile(zip_filename, 'w', zipfile.ZIP_DEFLATED) as zipf:
-            for root, _, files in os.walk(download_dir):
-                for file in files:
-                    zipf.write(os.path.join(root, file), os.path.relpath(os.path.join(root, file), download_dir))
+            # Create a zip file of the downloaded folder
+            zip_filename = os.path.join("tmp", random_folder_name + ".zip")
+            with zipfile.ZipFile(zip_filename, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                for root, _, files in os.walk(download_dir):
+                    for file in files:
+                        zipf.write(os.path.join(root, file), os.path.relpath(os.path.join(root, file), download_dir))
 
-        await callback_query.message.edit("Uploading ZIP file...")
+            await callback_query.message.edit("Uploading ZIP file...")
 
-        # Send the zip file to the user
-        await callback_query.message.reply_document(
-            document=zip_filename,
-            caption="Your music files are zipped and ready for download."
-        )
+            # Send the zip file to the user
+            await callback_query.message.reply_document(
+                document=zip_filename,
+                caption="Your music files are zipped and ready for download."
+            )
 
-        # Clean up the temporary folder and zip file
-        #shutil.rmtree(download_dir)
-        #os.remove(zip_filename)
 
-        if action == 'gd':  # User chose Google Drive
-            zip_file_name_only = random_folder_name + ".zip"
-            gd_link = keys.index_link + zip_file_name_only
-            # Upload the ZIP file to Google Drive using rclone
-            rclone_cfg = r'C:\Users\Tony Stark\Desktop\musicbotv2-main\musicbotv2-main\rclone.conf'
-            remote_name = 'Tony_Drive'
-            remote_directory = '1ZJ89QrS6841EKdXqmd6cyFzviO2_ZbbE'
-            remote_path = remote_name + ':' + remote_directory
-            rclone_command = f'rclone copy "{os.path.abspath(zip_filename)}" "Tony_Drive:1ZJ89QrS6841EKdXqmd6cyFzviO2_ZbbE"'
-            subprocess.run(rclone_command, shell=True, check=True)
-        
-        # Clean up the temporary folder and zip file
-        shutil.rmtree(download_dir)
-        os.remove(zip_filename)
-        await callback_query.message.reply_text(f"You can access your music ZIP file on Google Drive: {gd_link}")
+
+            if action == 'gd':  # User chose Google Drive
+                # Upload the ZIP file to Google Drive using rclone
+                rclone_cfg = r'C:\Users\Tony Stark\Desktop\musicbotv2-main\musicbotv2-main\rclone.conf'  # Update with your rclone config path
+                remote_name = 'Tony_Drive'  # Update with your remote name
+                remote_directory = '1ZJ89QrS6841EKdXqmd6cyFzviO2_ZbbE'  # Update with your remote directory
+                remote_path = f"{remote_name}:{remote_directory}"
+                rclone_command = f'rclone copy "{os.path.abspath(zip_filename)}" "{remote_path}"'
+                subprocess.run(rclone_command, shell=True, check=True)
+
+            # Remove the choice after processing
+            del user_choices[link]
+            
+            # Clean up the temporary folder and zip file
+            shutil.rmtree(download_dir)
+            os.remove(zip_filename)
+            
         await callback_query.message.edit("Processed!")
+        # Define the base URL for the link
+        base_url = "https://files.tonystarkuseless1.workers.dev/1:/remote_directory/remote_directory/"
 
+        # Construct the link using the remote_directory and zip_filename
+        link = f"{base_url}/{remote_directory}/{zip_file_name_only}"
 
+        # Edit the message to include the link
+        await callback_query.message.edit(f"Processed! You can access your file here: {link}")
     if __name__ == "__main__":
         deezloader_async = aioify(obj=Login, name='deezloader_async')
         download = deezloader_async(keys.arl_token)
