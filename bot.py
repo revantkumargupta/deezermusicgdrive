@@ -6,7 +6,6 @@ import shutil
 import requests
 from deezloader.deezloader import DeeLogin
 from bson import ObjectId
-from aioify import aioify
 from datetime import datetime, timedelta
 from pymongo import MongoClient
 from pyrogram import Client, filters
@@ -34,8 +33,6 @@ def sanitize_filename(filename):
     # Remove characters that are not allowed in Windows filenames
     return re.sub(r'[\/:*?"<>|]', '', filename)
 
-
-#arl_token = '1becba9651e7d0a560757eabc5d595793ea4a6a46d6015514020cbb8b24b00d2a6fde3d12c16d9c5101b448c58a9db8d6a3e51500153051864d7dabad6dd928bc743f2ea75343cf7ecab8232269a3da2aef40fbd62125d39589ebd45c6217a53'
 # Define a function to start the bot
 def start_bot():
     bot = Client(
@@ -43,46 +40,43 @@ def start_bot():
         api_id=keys.api_id,
         api_hash=keys.api_hash,
         bot_token=keys.bot_token
-        
     )
 
     @bot.on_message(filters.command("start"))
-    async def start_message(client, message):
-        await message.reply_text("Hello")
+    def start_message(client, message):
+        message.reply_text("Hello")
 
     @bot.on_message(filters.regex(r"^https?:\/\/(?:www\.)?deezer\.com\/([a-z]*\/)?album\/(\d+)\/?$"))
     @bot.on_message(filters.regex(r"https://www.deezer.com/track/"))
     @bot.on_message(filters.regex(r"^https?:\/\/(?:www\.)?deezer\.com\/([a-z]*\/)?playlist\/(\d+)\/?$"))
-    async def deezer_input(client, message):
+    def deezer_input(client, message):
         media_type = "playlist" if re.match(r"^https?:\/\/(?:www\.)?deezer\.com\/([a-z]*\/)?playlist\/(\d+)\/?$", message.text) else "album" if not re.search("https://www.deezer.com/track/", message.text) else "track"
         link = links.insert_one({"link": message.text, 'expire_at': datetime.utcnow() + timedelta(hours=24), 'type': media_type, 'service': 'deezer'})
-        await message.reply_text("Select one of the following options:", reply_markup=InlineKeyboardMarkup(
+        message.reply_text("Select one of the following options:", reply_markup=InlineKeyboardMarkup(
             [[
-                InlineKeyboardButton("Google Drive", callback_data=f"gd_{link.inserted_id}"),
-                InlineKeyboardButton("Telegram", callback_data=f"tg_{link.inserted_id}")
+                InlineKeyboardButton("Google Drive", callback_data=f"gd_{link.inserted_id}")
             ]]
         ))
 
     @bot.on_message(filters.regex(r"^https://open.spotify.com/album"))
     @bot.on_message(filters.regex(r"^https://open.spotify.com/track"))
     @bot.on_message(filters.regex(r"^https://open.spotify.com/playlist"))
-    async def spotify_input(client, message):
+    def spotify_input(client, message):
         media_type = 'album' if re.search(r"^https://open.spotify.com/album", message.text) else 'playlist' if re.search(r"^https://open.spotify.com/playlist", message.text) else 'track'
         link = links.insert_one({"link": message.text, 'expire_at': datetime.utcnow() + timedelta(hours=24), 'type': media_type, 'service': 'spotify'})
-        await message.reply_text("Select one of the following options:\n", reply_markup=InlineKeyboardMarkup(
+        message.reply_text("Select one of the following options:\n", reply_markup=InlineKeyboardMarkup(
             [[
-                InlineKeyboardButton("Google Drive", callback_data=f"gd_{link.inserted_id}"),
-                InlineKeyboardButton("Telegram", callback_data=f"tg_{link.inserted_id}")
+                InlineKeyboardButton("Google Drive", callback_data=f"gd_{link.inserted_id}")
             ]]
         ))
 
     @bot.on_callback_query(filters.regex("(gd|tg)_(.+)"))
-    async def handle_callback_query(client, callback_query):
+    def handle_callback_query(client, callback_query):
         url = None
-        await callback_query.message.edit("Processing...")
+        callback_query.message.edit("Processing...")
         link = links.find_one({"_id": ObjectId(callback_query.matches[0].group(2))})
         if link is None:
-            await callback_query.answer("Timeout!", show_alert=True)
+            callback_query.answer("Timeout!", show_alert=True)
             return
         link_type = link['type']
         service = link['service']
@@ -103,12 +97,12 @@ def start_bot():
             os.makedirs(download_dir, exist_ok=True)
             zip_filename = "tmp/"
             zip_file_name_only = os.path.basename(zip_filename)
-            await callback_query.message.edit("Downloading...")
+            callback_query.message.edit("Downloading...")
 
             # Update the download path based on the random folder name
             if service == 'deezer':
                 if link_type == 'album':
-                    dl = await download.download_albumdee(
+                    dl = download.download_albumdee(
                         link, output_dir=download_dir,
                         quality_download='FLAC',
                         recursive_download=True,
@@ -116,7 +110,7 @@ def start_bot():
                         not_interface=True
                     )
                 elif link_type == 'playlist':
-                    dl = await download.download_playlistdee(
+                    dl = download.download_playlistdee(
                         link, output_dir=download_dir,
                         quality_download='FLAC',
                         recursive_download=True,
@@ -124,7 +118,7 @@ def start_bot():
                         not_interface=True
                     )
                 elif link_type == 'track':
-                    dl = await download.download_trackdee(
+                    dl = download.download_trackdee(
                         link, output_dir=download_dir,
                         quality_download='FLAC',
                         recursive_download=True,
@@ -132,16 +126,13 @@ def start_bot():
                         not_interface=True
                     )
                     if action == 'tg':
-                        await callback_query.message.reply_audio(
-                            dl.song_path,
-                            duration=int(utils.get_flac_duration(dl.song_path))
-                        )
-                        await callback_query.message.edit('Processed!')
+                        client.send_audio(callback_query.message.chat.id, audio=dl.song_path, duration=int(utils.get_flac_duration(dl.song_path)))
+                        callback_query.message.edit('Processed!')
                     else:
                         url = dl.song_path
             else:
                 if link_type == 'album':
-                    dl = await download.download_albumspo(
+                    dl = download.download_albumspo(
                         link, output_dir=download_dir,
                         quality_download='FLAC',
                         recursive_download=True,
@@ -149,7 +140,7 @@ def start_bot():
                         not_interface=True
                     )
                 elif link_type == 'playlist':
-                    dl = await download.download_playlistspo(
+                    dl = download.download_playlistspo(
                         link, output_dir=download_dir,
                         quality_download='FLAC',
                         recursive_download=True,
@@ -157,23 +148,15 @@ def start_bot():
                         not_interface=True
                     )
                 elif link_type == 'track':
-                    dl = await download.download_trackspo(
+                    dl = download.download_trackspo(
                         link, output_dir=download_dir,
                         quality_download='FLAC',
                         recursive_download=True,
                         recursive_quality=True,
                         not_interface=True
                     )
-                    if action == 'tg':
-                        await callback_query.message.reply_audio(
-                            dl.song_path,
-                            duration=int(utils.get_flac_duration(dl.song_path))
-                        )
-                        await callback_query.message.edit('Processed!')
-                    else:
-                        url = dl.song_path
 
-            await callback_query.message.edit("Creating ZIP file...")
+            callback_query.message.edit("Creating ZIP file...")
 
             # Create a zip file of the downloaded folder
             zip_filename = os.path.join("tmp", random_folder_name + ".zip")
@@ -182,38 +165,31 @@ def start_bot():
                     for file in files:
                         zipf.write(os.path.join(root, file), os.path.relpath(os.path.join(root, file), download_dir))
 
-            await callback_query.message.edit("Uploading ZIP file...")
-
-            # Send the zip file to the user
-            await callback_query.message.reply_document(
-                document=zip_filename,
-                caption="Your music files are zipped and ready for download."
-            )
-
+            callback_query.message.edit("Uploading ZIP file...")
 
             if action == 'gd':  # User chose Google Drive
                 # Upload the ZIP file to Google Drive using rclone
                 zip_file_name_only = random_folder_name + ".zip"
                 gd_link = keys.index_link + zip_file_name_only
-                rclone_cfg = r'C:\Users\Tony Stark\Desktop\musicbotv2-main\musicbotv2-main\rclone.conf'  # Update with your rclone config path
+                rclone_cfg = './'  # Update with your rclone config path
                 remote_name = 'Tony_Drive'  # Update with your remote name
                 remote_directory = '1ZJ89QrS6841EKdXqmd6cyFzviO2_ZbbE'  # Update with your remote directory
                 remote_path = f"{remote_name}:{remote_directory}"
                 rclone_command = f'rclone copy "{os.path.abspath(zip_filename)}" "{remote_path}"'
                 subprocess.run(rclone_command, shell=True, check=True)
                 
-             # Remove the choice after processing
-            del user_choices[link]               
-            
+            # Remove the choice after processing
+            del user_choices[link]
+
             # Clean up the temporary folder and zip file
             shutil.rmtree(download_dir)
             os.remove(zip_filename)
-        await callback_query.message.reply_text(f"You can access your music ZIP file on Google Drive: {gd_link}")   
-        await callback_query.message.edit("Processed!")
+        callback_query.message.reply_text(f"You can access your music ZIP file on Google Drive: {gd_link}")
+        callback_query.message.edit("Processed!")
 
     if __name__ == "__main__":
-        deezloader_async = aioify(obj=DeeLogin, name='deezloader_async')
-        download = deezloader_async(keys.arl_token)
+        
+        download = DeeLogin(arl=keys.arl_token)
 
         try:
             os.mkdir("tmp")
