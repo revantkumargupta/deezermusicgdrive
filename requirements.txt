@@ -7,3 +7,5 @@ pyrogram
 requests
 pymongo
 stdlib_list
+tgcrypto
+utils
