@@ -1,4 +1,9 @@
-deezloader
+deezloader == 2022.3.5
 telebot
 rclone
-python-decouple
+bson
+aioify
+pyrogram
+requests
+pymongo
+stdlib_list
