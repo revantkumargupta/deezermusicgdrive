@@ -4,7 +4,7 @@ import rclone
 import re
 import shutil
 import requests
-from deezloader import Login
+from deezloader.deezloader import DeeLogin
 from bson import ObjectId
 from aioify import aioify
 from datetime import datetime, timedelta
@@ -212,7 +212,7 @@ def start_bot():
         await callback_query.message.edit("Processed!")
 
     if __name__ == "__main__":
-        deezloader_async = aioify(obj=Login, name='deezloader_async')
+        deezloader_async = aioify(obj=DeeLogin, name='deezloader_async')
         download = deezloader_async(keys.arl_token)
 
         try:
